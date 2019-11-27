@@ -11,6 +11,18 @@ WinDbg для .NET
     https://blogs.msdn.microsoft.com/alejacma/2009/08/11/managed-debugging-with-windbg-thread-stacks-part-1/
     https://blogs.msdn.microsoft.com/alejacma/2009/08/10/managed-debugging-with-windbg-threads-part-2/
     https://theartofdev.com/windbg-cheat-sheet/
+    https://anticode.ninja/posts/2018/windbg_course/
+    https://anticode.ninja/posts/2018/windbg_hunt/
+
+Команды общего назначения
+-------------------------
+
+Несколько полезных команд для работы с WinDbg::
+
+    * Комментарий 1.
+    $$ Комментарий 2.
+    .cls *Очистка окна команд.
+    Ctrl+Break *Остановка выполняемой *Busy* команды.
 
 Загрузка дампа и необходимых модулей
 ------------------------------------
