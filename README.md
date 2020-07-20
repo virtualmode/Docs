@@ -1,2 +1,2 @@
-# Docs
-Useful documentation
+# Blog
+Useful resources and articles
