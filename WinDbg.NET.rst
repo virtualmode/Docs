@@ -19,8 +19,8 @@ WinDbg для .NET
 
 Сначала необходимо установить из ``Windows SDK`` пакета набор утилит ``Debugging Tools for Windows``.
 Будут установлены ``C:\Program Files (x86)\Windows Kits\...\Debuggers\x86\windbg.exe`` и ``C:\Program Files (x86)\Windows Kits\...\Debuggers\x86\windbg.exe`` версии.
-Далее необходимо скачать sosex (SOS extended) с сайта `http://www.stevestechspot.com/` и установить соответствующие архитектурам версии в папки ``x86\winext`` и ``x86\winext``.
-Это позволит использовать более короткую команду ``.load sosex``.
+Далее необходимо скачать sosex (SOS extended) с сайта `http://www.stevestechspot.com/` и установить соответствующие архитектурам версии в папки ``x86\winext`` и ``x64\winext``.
+Это позволит использовать ``.load sosex``, которая инициализирует библиотеку и поможет выполнять другие команды.
 
 Команды общего назначения
 -------------------------
@@ -73,6 +73,7 @@ SOS is the debugger extension for managed coding debugging. Type !help to see wh
 
 Создание индекса кучи и подготовка к работе::
 
+    .load sosex
     !bhi *Создание индекса.
     !VerifyHeap *Проверка целостности кучи.
     !EEHeap *Информация о занятом пространстве.
