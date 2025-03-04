@@ -68,8 +68,14 @@
 
 12. Установка Java:
 
+    apt-cache search openjdk # Посмотреть доступные компоненты.
     # Можно использовать default-jre или default-jdk (содержит default-jre) пакеты.
     sudo apt install default-jdk
+    # Для Sonatype Nexus дополнительно нужно поставить JDK 17.
+    sudo apt install openjdk-17-jdk
+    # Установка переменных окружения через /etc/environment или /etc/environment.d/90java.conf.
+    JAVA_HOME="/usr/lib/jvm/default-java"
+    INSTALL4J_JAVA_HOME="/usr/lib/jvm/java-17-openjdk-arm64"
 
 13. Установка и настройка Samba:
 
@@ -132,6 +138,7 @@
     Ctrl+C
     # Не понятно, как правильно устанавливать сервис и под каким пользователем. В итоге установил `ums.service` в `/etc/systemd/system` и включил автозапуск.
     sudo systemctl enable ums
+    # Сервис будет доступен по адресу `http://media.lan:9001`.
     # Файл сервиса `ums.service`.
     [Unit]
     Description=UMS
@@ -150,4 +157,188 @@
     [Install]
     WantedBy=default.target
 
-15. Установка 
+15. Установка Sonatype Nexus:
+
+    sudo tar -zxvf nexus-3.77.2-02-unix.tar.gz -C /opt
+    sudo mv nexus-3.77.2-02/ nexus/
+    sudo chown -R virtualmode:virtualmode nexus/ sonatype-work/
+    sudo vim /opt/nexus/bin/nexus.rc # Заменить строку без комментария на `run_as_user="virtualmode"`.
+    # Файл сервиса `nexus.service`.
+    [Unit]
+    Description=Nexus service
+    After=network.target
+    [Service]
+    Type=forking
+    LimitNOFILE=65536
+    ExecStart=/opt/nexus/bin/nexus start
+    ExecStop=/opt/nexus/bin/nexus stop
+    User=virtualmode
+    Restart=on-abort
+    [Install]
+    WantedBy=multi-user.target
+    # Подготовка сервиса.
+    sudo vim /etc/systemd/system/nexus.service
+    sudo systemctl enable nexus
+    # Загрузка Nexus занимает в среднем 2-3 минуты.
+    # Готовность программы можно проверить в файле nexus.log, найдя строку Started Sonatype Nexus OSS:
+    tail -f /opt/sonatype-work/nexus3/log/nexus.log
+    # Зайти на сервис можно по адресу `http://media.lan:8081` для настройки.
+    cat /opt/sonatype-work/nexus3/admin.password
+    # После получения пароля необходимо зайти в учётную запись `admin` и завершить настройку.
+
+16. Установка GitLab:
+
+    # Т.к. исполняемые файлы GitLab по умолчанию ставятся в `/opt/gitlab`, а данные в `/var/opt/gitlab`, то есть смысл попробовать смонтировать `/var/opt` на другое устройство.
+    # Пишут, что есть файл `/etc/gitlab/gitlab.rb` настроек, в котором можно сменить путь для данных, но непонятно, насколько это правильно.
+    # Для того, чтобы одно устройство смонтированть на несколько путей, необходимо использовать параметр `-o bund` для `mount` или добавить запись в `/etc/fstab`.
+    /mnt/ssd0 /var/opt none defaults,bind,nofail 0 2
+    # После перезагрузки выполнить если необходимо.
+    sudo apt-get update
+    sudo apt-get install -y curl openssh-server ca-certificates tzdata perl
+    # Можно установить почтовый сервер опционально.
+    sudo apt-get install -y postfix
+    # Скачиваем скрипт установки и запускаем его. Для Community Edition - ce суффикс, для Enterprise Edition - ee.
+    cd /tmp
+    curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+    # Будут добавлены репозитории GitLab, после чего можно продолжить установку.
+    sudo apt install gitlab-ce
+    # ВНИМАНИЕ! Такой вариант установки может не работать на некоторых операционных системах, для которых нет требуемой версии.
+    # Поэтому можно скачать пакет вручную на https://packages.gitlab.com/gitlab/gitlab-ce.
+    # В моём случае это https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/noble/gitlab-ce_17.9.1-ce.0_arm64.deb версия.
+    # На странице есть вариант установки: sudo apt-get install gitlab-ce=17.9.1-ce.0
+    # Лучше скачать второй командой.
+    wget --content-disposition https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/noble/gitlab-ce_17.9.1-ce.0_arm64.deb/download.deb
+    sudo dpkg -i gitlab-ce_17.9.1-ce.0_arm64.deb
+    # После установки необходимо настроить адрес и порт в файле /etc/gitlab/gitlab.rb.
+    sudo vim /etc/gitlab/gitlab.rb
+    # external_url 'http://media.lan'.
+    # Можно указать порт и заменить на https, тогда GitLab создаст сертификат с помощью Let’s Encrypt.
+    sudo gitlab-ctl reconfigure
+    # Заходим под `root` и паролем.
+    sudo cat /etc/gitlab/initial_root_password
+    # Меняем праоль, настраиваем всё необходимое. Система может подвисать, видимо, из-за каких-то первичных процессов настройки.
+
+17. Настройка VPN на OpenWrt:
+
+    # Есть несколько подходящих вариантов VPN: L2TP/IPsec (самый распространённый вариант) и OpenVPN (требует стороннее программное обеспечение на стороне клиента).
+    # Основной документ настройки OpenVPN сервера находится по https://openwrt.org/docs/guide-user/services/vpn/openvpn/server ссылке.
+    # Дополнительный документ по настройке OpenVPN находится по https://openwrt.org/ru/doc/howto/vpn.openvpn ссылке.
+    # Информацию по настройке клиентов OpenVPN можно найти по https://openwrt.org/docs/guide-user/services/vpn/openvpn/client-luci ссылке.
+    # Далее настроим самый простой вариант с OpenVPN сервером для роутера на OpenWrt.
+    opkg update
+    opkg install openvpn-openssl openvpn-easy-rsa luci-app-openvpn
+    # Далее в консоли выполняем необходимые команды.
+    VPN_DIR="/etc/openvpn"
+    VPN_PKI="/etc/easy-rsa/pki"
+    VPN_PORT="1194"
+    VPN_PROTO="udp"
+    VPN_POOL="192.168.9.0 255.255.255.0"
+    VPN_DNS="${VPN_POOL%.* *}.1"
+    VPN_DN="$(uci -q get dhcp.@dnsmasq[0].domain)"
+    VPN_SERV="EXTERNAL_IP_OR_DNS_OF_THE_ROUTER"
+    # Используем новую версию EasyRSA для исключения некоторых ошибок.
+    wget -U "" -O /tmp/easyrsa.tar.gz https://github.com/OpenVPN/easy-rsa/releases/download/v3.1.7/EasyRSA-3.1.7.tgz
+    tar -z -x -f /tmp/easyrsa.tar.gz
+    # Конфигурация параметров.
+    cat << EOF > /etc/profile.d/easy-rsa.sh
+    export EASYRSA_PKI="${VPN_PKI}"
+    export EASYRSA_TEMP_DIR="/tmp"
+    export EASYRSA_CERT_EXPIRE="3650"
+    export EASYRSA_BATCH="1"
+    alias easyrsa="/root/EasyRSA-3.1.7/easyrsa"
+    EOF
+    # Запуск скрипта.
+    . /etc/profile.d/easy-rsa.sh
+    # Remove and re-initialize PKI directory.
+    easyrsa init-pki
+    # Generate DH parameters.
+    easyrsa gen-dh
+    # Create a new CA.
+    easyrsa build-ca nopass
+    # Generate server keys and certificate.
+    easyrsa build-server-full server nopass
+    openvpn --genkey tls-crypt-v2-server ${EASYRSA_PKI}/private/server.pem
+    # Создание ключей и сертификата для клиента (повторить для каждого клиента).
+    easyrsa build-client-full client nopass
+    openvpn --tls-crypt-v2 ${EASYRSA_PKI}/private/server.pem --genkey tls-crypt-v2-client ${EASYRSA_PKI}/private/client.pem
+    # Configure firewall.
+    uci rename firewall.@zone[0]="lan"
+    uci rename firewall.@zone[1]="wan"
+    uci del_list firewall.lan.device="tun+"
+    uci add_list firewall.lan.device="tun+"
+    uci -q delete firewall.ovpn
+    uci set firewall.ovpn="rule"
+    uci set firewall.ovpn.name="Allow-OpenVPN"
+    uci set firewall.ovpn.src="wan"
+    uci set firewall.ovpn.dest_port="${VPN_PORT}"
+    uci set firewall.ovpn.proto="${VPN_PROTO}"
+    uci set firewall.ovpn.target="ACCEPT"
+    # Применяем настройки и перезагружаем службу.
+    uci commit firewall
+    service firewall restart
+    # Configure VPN service and generate client profiles.
+    umask go=
+    VPN_DH="$(cat ${VPN_PKI}/dh.pem)"
+    VPN_CA="$(openssl x509 -in ${VPN_PKI}/ca.crt)"
+    ls ${VPN_PKI}/issued | sed -e "s/\.\w*$//" | while read -r VPN_ID
+    do
+    VPN_TC="$(cat ${VPN_PKI}/private/${VPN_ID}.pem)"
+    VPN_KEY="$(cat ${VPN_PKI}/private/${VPN_ID}.key)"
+    VPN_CERT="$(openssl x509 -in ${VPN_PKI}/issued/${VPN_ID}.crt)"
+    VPN_EKU="$(echo "${VPN_CERT}" | openssl x509 -noout -purpose)"
+    case ${VPN_EKU} in
+    (*"SSL server : Yes"*)
+    VPN_CONF="${VPN_DIR}/${VPN_ID}.conf"
+    cat << EOF > ${VPN_CONF} ;;
+    user nobody
+    group nogroup
+    dev tun
+    port ${VPN_PORT}
+    proto ${VPN_PROTO}
+    server ${VPN_POOL}
+    topology subnet
+    client-to-client
+    keepalive 10 60
+    persist-tun
+    persist-key
+    push "dhcp-option DNS ${VPN_DNS}"
+    push "dhcp-option DOMAIN ${VPN_DN}"
+    push "redirect-gateway def1"
+    push "persist-tun"
+    push "persist-key"
+    <dh>
+    ${VPN_DH}
+    </dh>
+    EOF
+    (*"SSL client : Yes"*)
+    VPN_CONF="${VPN_DIR}/${VPN_ID}.ovpn"
+    cat << EOF > ${VPN_CONF} ;;
+    user nobody
+    group nogroup
+    dev tun
+    nobind
+    client
+    remote ${VPN_SERV} ${VPN_PORT} ${VPN_PROTO}
+    auth-nocache
+    remote-cert-tls server
+    EOF
+    esac
+    cat << EOF >> ${VPN_CONF}
+    <tls-crypt-v2>
+    ${VPN_TC}
+    </tls-crypt-v2>
+    <key>
+    ${VPN_KEY}
+    </key>
+    <cert>
+    ${VPN_CERT}
+    </cert>
+    <ca>
+    ${VPN_CA}
+    </ca>
+    EOF
+    done
+    service openvpn restart
+    ls ${VPN_DIR}/*.ovpn
+    # Далее копируем сформированные профили клиентов для использования на удалённых машинах /etc/openvpn/*.ovpn и перезагружаем роутер.
+    reboot
