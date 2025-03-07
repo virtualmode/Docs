@@ -76,6 +76,7 @@
     # Установка переменных окружения через /etc/environment или /etc/environment.d/90java.conf.
     JAVA_HOME="/usr/lib/jvm/default-java"
     INSTALL4J_JAVA_HOME="/usr/lib/jvm/java-17-openjdk-arm64"
+    # Для новых версий Nexus используется встроенная JVM, поэтому устанавливать INSTALL4J_JAVA_HOME скорее всего не нужно.
 
 13. Установка и настройка Samba:
 
@@ -185,6 +186,8 @@
     # Зайти на сервис можно по адресу `http://media.lan:8081` для настройки.
     cat /opt/sonatype-work/nexus3/admin.password
     # После получения пароля необходимо зайти в учётную запись `admin` и завершить настройку.
+    # Дополнительно можно ограничить память JVM, заменив стандартные значения на `-Xms512m` и `-Xmx512m`.
+    vim /opt/nexus/bin/nexus.vmoptions
 
 16. Установка GitLab:
 
@@ -342,3 +345,41 @@
     ls ${VPN_DIR}/*.ovpn
     # Далее копируем сформированные профили клиентов для использования на удалённых машинах /etc/openvpn/*.ovpn и перезагружаем роутер.
     reboot
+
+18. Создание сертификата для сервисов:
+
+    # Создание конфигурационного файла `sslcert.conf`.
+    [req]
+    distinguished_name = req_distinguished_name
+    x509_extensions = v3_req
+    prompt = no
+    [req_distinguished_name]
+    C = RU
+    ST = TSK
+    L = Tomsk
+    O = Home
+    OU = DevOps
+    CN = *.lan
+    [v3_req]
+    keyUsage = keyEncipherment, dataEncipherment
+    extendedKeyUsage = serverAuth, clientAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = *.lan
+    DNS.2 = docs.lan
+    DNS.3 = game.lan
+    DNS.4 = grafana.lan
+    DNS.5 = home.lan
+    DNS.6 = media.lan
+    DNS.7 = server.lan
+    # Генерация ключа и сертификата.
+    mkdir ~/ssl
+    cd ~/ssl
+    openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout lan.key -out lan.crt -config sslcert.conf -extensions 'v3_req'
+    sudo mkdir -p /etc/gitlab/ssl
+    sudo chmod 755 /etc/gitlab/ssl
+    sudo cp lan.key lan.crt /etc/gitlab/ssl/
+    # Установка сертификата для GitLab.
+    # В файле `/etc/gitlab/gitlab.rb` необходимо заменить адрес на https и порт опционально, и реконфигурировать.
+    sudo gitlab-ctl reconfigure
+    # Domain name does not end with a valid public suffix (TLD).
