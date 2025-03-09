@@ -18,6 +18,7 @@
     sudo apt install wget gpg # Ubuntu уже содержит.
     sudo apt install p7zip-rar p7zip-full
     sudo apt install build-essential # Базовые средства разработки.
+    sudo apt install trash-cli # Утилита для очистки корзины командой `trash-empty`.
     #sudo apt install make libssl-dev libghc-zlib-dev libcurl4-gnutls-dev libexpat1-dev gettext unzip
     # Настройки окружения.
     sudo ln -s /usr/bin/python3.12 /usr/bin/py
@@ -75,7 +76,7 @@
     sudo apt install openjdk-17-jdk
     # Установка переменных окружения через /etc/environment или /etc/environment.d/90java.conf.
     JAVA_HOME="/usr/lib/jvm/default-java"
-    INSTALL4J_JAVA_HOME="/usr/lib/jvm/java-17-openjdk-arm64"
+    #INSTALL4J_JAVA_HOME="/usr/lib/jvm/java-17-openjdk-arm64"
     # Для новых версий Nexus используется встроенная JVM, поэтому устанавливать INSTALL4J_JAVA_HOME скорее всего не нужно.
 
 13. Установка и настройка Samba:
@@ -122,23 +123,31 @@
     # Установка дополнительных компонентов.
     sudo apt-get install mediainfo dcraw vlc-bin mplayer mencoder
     # tsMuxeR можно скачать с https://github.com/justdan96/tsMuxer и установить.
-    sudo cp tsMuxeR /usr/bin
+    #sudo cp tsMuxeR /usr/bin/
+    sudo cp /mnt/ssd1/Home/Distrib/Linux/UMS/tsMuxeR /usr/bin/
     sudo chmod 755 /usr/bin/tsMuxeR
     sudo ln -s /usr/bin/tsMuxeR /usr/bin/tsmuxer
-    # Для ARM процессора лучше пересобрать.
+    # [Опционально] Для ARM процессора лучше пересобрать.
     sudo apt-get install build-essential ninja-build cmake checkinstall # Для ARM необходимо собрать вручную `g++-multilib`.
     sudo apt-get install libc6-dev libfreetype6-dev zlib1g-dev
     # Необходимо разархивировать сервер в то место, где он будет работать после установки.
-    sudo cp ums-Linux-$VERSION.tgz /opt/
-    sudo tar xzvf ums-Linux-$VERSION.tgz
+    #sudo cp ums-Linux-$VERSION.tgz /opt/
+    #sudo tar xzvf ums-Linux-$VERSION.tgz
+    sudo cp /mnt/ssd1/Home/Distrib/Linux/UMS/UMS-Linux-14.9.0-arm64.tgz /opt/
+    sudo tar xzvf /opt/UMS-Linux-14.9.0-arm64.tgz -C /opt/
+    sudo mv /opt/ums-14.9.0 /opt/ums
     # Наверное, лучше сменить владельца и группу, под которым будет запускаться приложение.
-    sudo chown -R virtualmode:virtualmode /opt/ums-$VERSION
-    # Первый запуск сервера (UMS should NOT be run as root).
+    #sudo chown -R virtualmode:virtualmode /opt/ums-$VERSION
+    sudo chown -R virtualmode:virtualmode /opt/ums
+    # [Опционально] Первый запуск сервера (UMS should NOT be run as root).
     cd ums-$VERSION
     ./UMS.sh
     Ctrl+C
     # Не понятно, как правильно устанавливать сервис и под каким пользователем. В итоге установил `ums.service` в `/etc/systemd/system` и включил автозапуск.
+    sudo cp /mnt/ssd1/Home/Distrib/Linux/UMS/ums.service /etc/systemd/system/
+    sudo systemctl daemon-reload
     sudo systemctl enable ums
+    sudo reboot
     # Сервис будет доступен по адресу `http://media.lan:9001`.
     # Файл сервиса `ums.service`.
     [Unit]
@@ -150,7 +159,7 @@
     Type=simple
     User=virtualmode
     Group=virtualmode
-    ExecStart=/opt/ums-$VERSION/UMS.sh
+    ExecStart=/opt/ums/UMS.sh
     TimeoutStartSec=0
     RemainAfterExit=yes
     Environment="UMS_MAX_MEMORY=500M"
@@ -160,9 +169,9 @@
 
 15. Установка Sonatype Nexus:
 
-    sudo tar -zxvf nexus-3.77.2-02-unix.tar.gz -C /opt
-    sudo mv nexus-3.77.2-02/ nexus/
-    sudo chown -R virtualmode:virtualmode nexus/ sonatype-work/
+    sudo tar -zxvf nexus-unix-aarch64-3.78.1-02.tar.gz -C /opt
+    sudo mv /opt/nexus-3.78.1-02/ /opt/nexus/
+    sudo chown -R virtualmode:virtualmode /opt/nexus/ /opt/sonatype-work/
     sudo vim /opt/nexus/bin/nexus.rc # Заменить строку без комментария на `run_as_user="virtualmode"`.
     # Файл сервиса `nexus.service`.
     [Unit]
@@ -179,6 +188,7 @@
     WantedBy=multi-user.target
     # Подготовка сервиса.
     sudo vim /etc/systemd/system/nexus.service
+    sudo systemctl daemon-reload
     sudo systemctl enable nexus
     # Загрузка Nexus занимает в среднем 2-3 минуты.
     # Готовность программы можно проверить в файле nexus.log, найдя строку Started Sonatype Nexus OSS:
@@ -186,20 +196,25 @@
     # Зайти на сервис можно по адресу `http://media.lan:8081` для настройки.
     cat /opt/sonatype-work/nexus3/admin.password
     # После получения пароля необходимо зайти в учётную запись `admin` и завершить настройку.
-    # Дополнительно можно ограничить память JVM, заменив стандартные значения на `-Xms512m` и `-Xmx512m`.
+    # Дополнительно можно ограничить память JVM, заменив стандартные значения на `-Xms500m` и `-Xmx500m`.
     vim /opt/nexus/bin/nexus.vmoptions
+    # Дополнительно можно закомментировать строки.
+    #-XX:+LogVMOutput
+    #-XX:LogFile=../sonatype-work/nexus3/log/jvm.log
 
 16. Установка GitLab:
 
     # Т.к. исполняемые файлы GitLab по умолчанию ставятся в `/opt/gitlab`, а данные в `/var/opt/gitlab`, то есть смысл попробовать смонтировать `/var/opt` на другое устройство.
     # Пишут, что есть файл `/etc/gitlab/gitlab.rb` настроек, в котором можно сменить путь для данных, но непонятно, насколько это правильно.
     # Для того, чтобы одно устройство смонтированть на несколько путей, необходимо использовать параметр `-o bund` для `mount` или добавить запись в `/etc/fstab`.
-    /mnt/ssd0 /var/opt none defaults,bind,nofail 0 2
+    # Необходимо, чтобы путь `/mnt/ssd0/var/opt` уже существовал.
+    /mnt/ssd0/var/opt /var/opt none defaults,bind,nofail 0 2
     # После перезагрузки выполнить если необходимо.
     sudo apt-get update
     sudo apt-get install -y curl openssh-server ca-certificates tzdata perl
     # Можно установить почтовый сервер опционально.
     sudo apt-get install -y postfix
+    # Установил как `Local only` с доменом `mail.lan`.
     # Скачиваем скрипт установки и запускаем его. Для Community Edition - ce суффикс, для Enterprise Edition - ee.
     cd /tmp
     curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
@@ -207,15 +222,59 @@
     sudo apt install gitlab-ce
     # ВНИМАНИЕ! Такой вариант установки может не работать на некоторых операционных системах, для которых нет требуемой версии.
     # Поэтому можно скачать пакет вручную на https://packages.gitlab.com/gitlab/gitlab-ce.
-    # В моём случае это https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/noble/gitlab-ce_17.9.1-ce.0_arm64.deb версия.
+    # В моём случае это https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/noble/gitlab-ce_17.9.2-ce.0_arm64.deb версия.
     # На странице есть вариант установки: sudo apt-get install gitlab-ce=17.9.1-ce.0
     # Лучше скачать второй командой.
-    wget --content-disposition https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/noble/gitlab-ce_17.9.1-ce.0_arm64.deb/download.deb
-    sudo dpkg -i gitlab-ce_17.9.1-ce.0_arm64.deb
-    # После установки необходимо настроить адрес и порт в файле /etc/gitlab/gitlab.rb.
-    sudo vim /etc/gitlab/gitlab.rb
-    # external_url 'http://media.lan'.
+    wget --content-disposition https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/noble/gitlab-ce_17.9.2-ce.0_arm64.deb/download.deb
+    sudo dpkg -i gitlab-ce_17.9.2-ce.0_arm64.deb
+    # После установки необходимо настроить адрес и порт в файле `sudo vim /etc/gitlab/gitlab.rb`.
+    external_url 'https://gitlab.lan'.
     # Можно указать порт и заменить на https, тогда GitLab создаст сертификат с помощью Let’s Encrypt.
+    # Если необходимо обновить ключ вручную, то сначала удаляется каталог, если уже был создан.
+    sudo rm -rf /etc/gitlab/ssl/
+    # Копируем сертификаты с именем домена обязательно.
+    sudo mkdir -p /etc/gitlab/ssl
+    sudo chmod 755 /etc/gitlab/ssl
+    sudo cp ~/ssl/home.crt /etc/gitlab/ssl/gitlab.lan.crt
+    sudo cp ~/ssl/home.key /etc/gitlab/ssl/gitlab.lan.key
+    # Дополнительно можно оптимизировать GitLab для низкопроизводительных систем.
+    # https://docs.gitlab.com/omnibus/settings/memory_constrained_envs/
+    # Custom optimization.
+    puma['worker_processes'] = 0
+
+    sidekiq['concurrency'] = 10
+
+    prometheus_monitoring['enable'] = false
+
+    gitlab_rails['env'] = {
+      'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000'
+    }
+
+    gitaly['configuration'] = {
+      concurrency: [
+        {
+          'rpc' => "/gitaly.SmartHTTPService/PostReceivePack",
+          'max_per_repo' => 3,
+        }, {
+          'rpc' => "/gitaly.SSHService/SSHUploadPack",
+          'max_per_repo' => 3,
+        },
+      ],
+      cgroups: {
+        repositories: {
+          count: 2,
+        },
+        mountpoint: '/sys/fs/cgroup',
+        hierarchy_root: 'gitaly',
+        memory_bytes: 500000,
+        cpu_shares: 512,
+      },
+    }
+    gitaly['env'] = {
+      'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000',
+      'GITALY_COMMAND_SPAWN_MAX_PARALLEL' => '2'
+    }
+    # Реконфигурация GitLab.
     sudo gitlab-ctl reconfigure
     # Заходим под `root` и паролем.
     sudo cat /etc/gitlab/initial_root_password
@@ -348,38 +407,14 @@
 
 18. Создание сертификата для сервисов:
 
-    # Создание конфигурационного файла `sslcert.conf`.
-    [req]
-    distinguished_name = req_distinguished_name
-    x509_extensions = v3_req
-    prompt = no
-    [req_distinguished_name]
-    C = RU
-    ST = TSK
-    L = Tomsk
-    O = Home
-    OU = DevOps
-    CN = *.lan
-    [v3_req]
-    keyUsage = keyEncipherment, dataEncipherment
-    extendedKeyUsage = serverAuth, clientAuth
-    subjectAltName = @alt_names
-    [alt_names]
-    DNS.1 = *.lan
-    DNS.2 = docs.lan
-    DNS.3 = game.lan
-    DNS.4 = grafana.lan
-    DNS.5 = home.lan
-    DNS.6 = media.lan
-    DNS.7 = server.lan
-    # Генерация ключа и сертификата.
+    # В файле `/etc/gitlab/gitlab.rb` необходимо заменить адрес на https и порт опционально.
+    # Конфигурационный файл `home.conf` для генерации сертификата можно скачать из моего основного репозитория.
+    # Генерация приватного ключа и сертификата.
     mkdir ~/ssl
     cd ~/ssl
-    openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout lan.key -out lan.crt -config sslcert.conf -extensions 'v3_req'
-    sudo mkdir -p /etc/gitlab/ssl
-    sudo chmod 755 /etc/gitlab/ssl
-    sudo cp lan.key lan.crt /etc/gitlab/ssl/
-    # Установка сертификата для GitLab.
-    # В файле `/etc/gitlab/gitlab.rb` необходимо заменить адрес на https и порт опционально, и реконфигурировать.
-    sudo gitlab-ctl reconfigure
-    # Domain name does not end with a valid public suffix (TLD).
+    openssl req -x509 -days 36500 -config home.conf -keyout home.key -out home.crt [-extensions 'v3_req']
+    openssl pkcs12 -export -out home.pfx -inkey home.key -in home.crt # Генерировать pfx можно без пароля.
+    # Можно игнорировать ошибки самоподписанного сертификата: Domain name does not end with a valid public suffix (TLD).
+    # Поле `subjectAltName`, видимо, не поддерживает маску c доменом первого уровня: NET::ERR_CERT_COMMON_NAME_INVALID.
+    # Наверное, маска работает при наличии домена второго уровня и распространяется на домены третьего.
+    # Поэтому в конфигурационный файл сертификата пришлось добавлять каждый используемый домен.
