@@ -239,10 +239,11 @@
     sudo cp ~/ssl/home.key /etc/gitlab/ssl/gitlab.lan.key
     # Дополнительно можно оптимизировать GitLab для низкопроизводительных систем.
     # https://docs.gitlab.com/omnibus/settings/memory_constrained_envs/
+    # https://labs.etsi.org/rep/help/administration/gitaly/configure_gitaly.md
     # Custom optimization.
     puma['worker_processes'] = 0
 
-    sidekiq['concurrency'] = 10
+    sidekiq['concurrency'] = 8
 
     prometheus_monitoring['enable'] = false
 
@@ -263,11 +264,14 @@
       cgroups: {
         repositories: {
           count: 2,
+          cpu_shares: 384,
+          cpu_quota_us: 200000,
         },
         mountpoint: '/sys/fs/cgroup',
         hierarchy_root: 'gitaly',
         memory_bytes: 500000,
-        cpu_shares: 512,
+        cpu_shares: 384,
+        cpu_quota_us: 200000,
       },
     }
     gitaly['env'] = {
