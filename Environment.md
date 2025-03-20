@@ -1,6 +1,13 @@
 Настройка окружения
 ===================
 
+Заметки
+-------
+
+Получение прав root:
+
+    sudo -s
+
 Медиасервер Ubuntu
 ------------------
 
@@ -23,6 +30,18 @@
     # Настройки окружения.
     sudo ln -s /usr/bin/python3.12 /usr/bin/py
     sudo ln -s /usr/bin/python3.12 /usr/bin/python
+    # Сразу можно Git настроить.
+    # Конфигурация репозитория находится в `.git/config`.
+    # Пользовательская конфигурация находится в `~/.gitconfig`.
+    # Системная конфигурация `/etc/gitconfig` настраивается через sudo.
+    git config --list
+    git config --global --list
+    git config --system --list
+    # Установка системных настроек.
+    sudo git config --system core.ignorecase false
+    sudo git config --system core.autocrlf false
+    sudo git config --system core.safecrlf warn
+    sudo git config --system core.symlinks true
 
  8. [Опционально] Установка homebrew (не для ARM):
 
@@ -256,6 +275,9 @@
     sudo smbpasswd -a username
     # Подключиться к общему ресурсу можно из проводника по `\\media.lan\Shared` адресу.
     # Если логин и пароль вашего пользователя Windows совпадает с логином и паролем в Samba, то вход произойдёт без запроса учётных данных.
+    # Добавление нового пользователя.
+    # Unlike Samba version 3.x and earlier, Samba version 4.x does not require a local Unix/Linux user for each Samba user that is created. The command is as follows for adding users into Samba Active Directory.
+    samba-tool user add USERNAME-HERE [PASSWORD]
 
 16. Установка Universal Media Server:
 
@@ -387,7 +409,8 @@
     prometheus_monitoring['enable'] = false
 
     gitlab_rails['env'] = {
-      'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000'
+      'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000',
+      'WORKHORSE_ARCHIVE_CACHE_DISABLED' => '1'
     }
 
     gitaly['configuration'] = {
@@ -400,19 +423,21 @@
           'max_per_repo' => 3,
         },
       ],
-      cgroups: {
-        repositories: {
-          count: 2,
-          cpu_shares: 384,
-          cpu_quota_us: 200000,
-        },
-        mountpoint: '/sys/fs/cgroup',
-        hierarchy_root: 'gitaly',
-        memory_bytes: 500000,
-        cpu_shares: 384,
-        cpu_quota_us: 200000,
-      },
+      # Настройка является alpha-версией и нарушает возможность создавать проекты.
+      #cgroups: {
+      #  repositories: {
+      #    count: 2,
+      #    cpu_shares: 384,
+      #    cpu_quota_us: 200000,
+      #  },
+      #  mountpoint: '/sys/fs/cgroup',
+      #  hierarchy_root: 'gitaly',
+      #  memory_bytes: 500000,
+      #  cpu_shares: 384,
+      #  cpu_quota_us: 200000,
+      #},
     }
+
     gitaly['env'] = {
       'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000',
       'GITALY_COMMAND_SPAWN_MAX_PARALLEL' => '2'
@@ -422,6 +447,7 @@
     # Заходим под `root` и паролем.
     sudo cat /etc/gitlab/initial_root_password
     # Меняем праоль, настраиваем всё необходимое. Система может подвисать, видимо, из-за каких-то первичных процессов настройки.
+    # Репозитории находятся в каталоге `/var/opt/gitlab/git-data/repositories/@hashed`.
 
 19. Настройка Postfix (требуется домен или сторонний SMTP):
 
