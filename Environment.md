@@ -256,7 +256,7 @@
     (258) ;   writeable = yes
     (259) ;   printable = no
     (260)    guest ok = yes
-    (261)    write list = virtualmode
+    (261)    write list = virtualmode, username
     (262) ;   guest account = guest
     (263) ;   create mode = 0777
     (264) ;   directory mask = 0777
@@ -273,11 +273,11 @@
     # Samba использует свои пароли для каждого пользователя системы. Если пользователя не существует в системе, то пароль не может быть задан.
     # Вручную необходимо задать пароли пользователей общих ресурсов.
     sudo smbpasswd -a username
+    # Добавление нового пользователя.
+    sudo adduser --no-create-home --disabled-password --disabled-login username
+    sudo smbpasswd -a username
     # Подключиться к общему ресурсу можно из проводника по `\\media.lan\Shared` адресу.
     # Если логин и пароль вашего пользователя Windows совпадает с логином и паролем в Samba, то вход произойдёт без запроса учётных данных.
-    # Добавление нового пользователя.
-    # Unlike Samba version 3.x and earlier, Samba version 4.x does not require a local Unix/Linux user for each Samba user that is created. The command is as follows for adding users into Samba Active Directory.
-    samba-tool user add USERNAME-HERE [PASSWORD]
 
 16. Установка Universal Media Server:
 
