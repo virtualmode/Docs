@@ -398,9 +398,16 @@
     sudo chmod 755 /etc/gitlab/ssl
     sudo cp ~/ssl/home.crt /etc/gitlab/ssl/gitlab.lan.crt
     sudo cp ~/ssl/home.key /etc/gitlab/ssl/gitlab.lan.key
+    sudo cp ~/ssl/home.crt /etc/gitlab/ssl/pages.lan.crt
+    sudo cp ~/ssl/home.key /etc/gitlab/ssl/pages.lan.key
     # Дополнительно можно оптимизировать GitLab для низкопроизводительных систем.
     # https://docs.gitlab.com/omnibus/settings/memory_constrained_envs/
     # https://labs.etsi.org/rep/help/administration/gitaly/configure_gitaly.md
+    external_url 'https://gitlab.lan'
+    pages_external_url 'https://pages.lan'
+
+    pages_nginx['redirect_http_to_https'] = true
+
     # Custom optimization.
     puma['worker_processes'] = 0
 
