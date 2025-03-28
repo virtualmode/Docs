@@ -221,7 +221,7 @@
     service openvpn restart
     ls ${VPN_DIR}/*.ovpn
     # Далее копируем сформированные профили клиентов для использования на удалённых машинах /etc/openvpn/*.ovpn и перезагружаем роутер.
-    reboot
+    sudo reboot
 
 14. [Опционально] Создание сертификата для сервисов:
 
@@ -236,6 +236,8 @@
     # Поле `subjectAltName`, видимо, не поддерживает маску c доменом первого уровня: NET::ERR_CERT_COMMON_NAME_INVALID.
     # Наверное, маска работает при наличии домена второго уровня и распространяется на домены третьего.
     # Поэтому в конфигурационный файл сертификата пришлось добавлять каждый используемый домен.
+    # Создание сертификата для Nexus'а именно с паролем по умолчанию `password`, чтобы потом не настраивать его в `/opt/nexus/etc/jetty/jetty-https.xml`.
+    keytool -importkeystore -deststorepass "password" -destkeypass "password" -destkeystore keystore.jks -srckeystore home.pfx -srcstoretype PKCS12 -srcstorepass ""
 
 15. Установка и настройка Samba:
 
@@ -330,10 +332,10 @@
 
 17. Установка Sonatype Nexus:
 
-    sudo tar -zxvf nexus-unix-aarch64-3.78.1-02.tar.gz -C /opt
-    sudo mv /opt/nexus-3.78.1-02/ /opt/nexus/
+    sudo tar -zxvf nexus-unix-aarch64-3.78.2-04.tar.gz -C /opt
+    sudo mv /opt/nexus-3.78.2-04/ /opt/nexus/
     sudo chown -R virtualmode:virtualmode /opt/nexus/ /opt/sonatype-work/
-    sudo vim /opt/nexus/bin/nexus.rc # Заменить строку без комментария на `run_as_user="virtualmode"`.
+    vim /opt/nexus/bin/nexus.rc # Заменить строку без комментария на `run_as_user="virtualmode"`.
     # Файл сервиса `nexus.service`.
     [Unit]
     Description=Nexus service
@@ -354,7 +356,7 @@
     # Загрузка Nexus занимает в среднем 2-3 минуты.
     # Готовность программы можно проверить в файле nexus.log, найдя строку Started Sonatype Nexus OSS:
     tail -f /opt/sonatype-work/nexus3/log/nexus.log
-    # Зайти на сервис можно по адресу `http://media.lan:8081` для настройки.
+    # Зайти на сервис можно по адресу `http://nexus.lan:8081` для настройки.
     cat /opt/sonatype-work/nexus3/admin.password
     # После получения пароля необходимо зайти в учётную запись `admin` и завершить настройку.
     # Дополнительно можно ограничить память JVM, заменив стандартные значения на `-Xms500m` и `-Xmx500m`.
@@ -362,6 +364,21 @@
     # Дополнительно можно закомментировать строки.
     #-XX:+LogVMOutput
     #-XX:LogFile=../sonatype-work/nexus3/log/jvm.log
+    # Установка сертификата для Nexus'а под текущим пользователем-владельцем.
+    mkdir /opt/sonatype-work/nexus3/etc/ssl
+    cp ~/ssl/keystore.jks /opt/sonatype-work/nexus3/etc/ssl/
+    # Установка `Default Secret Encryption Key` ключа.
+    cp ~/ssl/nexus.json /opt/sonatype-work/nexus3/etc/ssl/
+    chmod 664 /opt/sonatype-work/nexus3/etc/ssl/nexus.json
+    # vim /opt/sonatype-work/nexus3/etc/nexus.properties
+    application-port-ssl=8443
+    nexus-args=${jetty.etc}/jetty.xml,${jetty.etc}/jetty-http.xml,${jetty.etc}/jetty-https.xml,${jetty.etc}/jetty-requestlog.xml
+    ssl.etc=${karaf.data}/etc/ssl
+    nexus.secrets.file=/opt/sonatype-work/nexus3/etc/ssl/nexus.json
+    # Зайти в настройки `Administration -> System` и добавить `Base URL` параметр со значением `https://nexus.lan:8443/`.
+    # Перезагрузить сервис и выполнить команду для перешифрования секретов.
+    # В моём случае система сразу отобразила, что шифрование включено и перешифрование не требуется наверное.
+    curl -u admin:password -kX 'PUT' 'https://nexus.lan:8443/service/rest/v1/secrets/encryption/re-encrypt' -H 'accept: application/json' -H 'Content-Type: application/json' -H 'NX-ANTI-CSRF-TOKEN: any_token_text_value' -H 'X-Nexus-UI: true' -d '{ "secretKeyId": "nexus" }'
 
 18. Установка GitLab:
 
