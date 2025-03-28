@@ -379,6 +379,8 @@
     # Перезагрузить сервис и выполнить команду для перешифрования секретов.
     # В моём случае система сразу отобразила, что шифрование включено и перешифрование не требуется наверное.
     curl -u admin:password -kX 'PUT' 'https://nexus.lan:8443/service/rest/v1/secrets/encryption/re-encrypt' -H 'accept: application/json' -H 'Content-Type: application/json' -H 'NX-ANTI-CSRF-TOKEN: any_token_text_value' -H 'X-Nexus-UI: true' -d '{ "secretKeyId": "nexus" }'
+    # Чтобы обращения к Nexus по HTTPS выполнялись, необходимо добавить запись в `C:\Windows\System32\drivers\etc\hosts`, `/etc/hosts` или `/private/etc/hosts`.
+    192.168.x.y nexus.lan
 
 18. Установка GitLab:
 
